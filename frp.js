@@ -150,7 +150,7 @@ function setMarker(lat, lng) {
         data: {
             location: lat + ',' + lng,
             //半径何M
-            radius: 1000,
+            radius: 100,
             types: 'convenience_store',
             language: 'ja',
             sensor: 'false',
