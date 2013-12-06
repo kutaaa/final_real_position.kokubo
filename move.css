@@ -1,0 +1,11 @@
+@charset "utf-8";
+
+body {
+	background-image:url(IMG_0462.PNG);
+}
+
+#pagemove {
+	margin: 0 auto;
+	padding: 20px 0;
+	width: 640px;
+}

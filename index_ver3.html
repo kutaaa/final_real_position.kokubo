@@ -1,0 +1,93 @@
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta http-equiv="Content-Script-Type" content="text/javascript" />
+    <meta http-equiv="Content-Style-Type" content="text/css" />
+
+    <title>Google Mapsの練習</title>
+    <script src="http://maps.google.com/maps/api/js?sensor=true&language=ja"></script>
+    <script src="http://maps.googleapis.com/maps/api/js?sensor=false" type="text/javascript"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="control"></div>
+    <script>
+        var Elatlng = null;
+        var markersArray = [];
+        var latlng = new google.maps.LatLng(35.66, 139.69);
+        
+        var options = {
+            zoom: 15,
+            center: latlng,
+            mapTypeId: google.maps.MapTypeId.ROADMAP
+        }
+        
+        var map = new google.maps.Map(document.getElementById('map'), options);
+
+//情報ウィンドー
+        var infoWindow = new google.maps.InfoWindow({
+            content: '青森大学避難所<br>' 
+
+            //<input type="button" value="Exec" onclick="OnButtonClick();">
+        }
+        //document.getElementById("control").innerHTML += '<input type="button" id="cls" value="cls">';
+        );
+        //避難場所表示マーカー
+        var myMarker = new google.maps.Marker({
+            // マーカーを置く緯度経度
+            position: new google.maps.LatLng(40.782841, 140.782183),
+            map: map 
+        });
+        google.maps.event.addListener(myMarker, 'click', function() {
+            infoWindow.open(map, myMarker);
+            Elatlng = new google.maps.LatLng(40.782841, 140.782183);
+            console.log(Elatlng);
+
+            /*
+            //ここにナビボタンを入れる
+            infowindow.setContent(
+                document.getElementById("control").innerHTML += '<input type="button" id="cls" value="cls">';
+            );
+*/
+        });
+        // HTML5 - Google Chrome
+        // iPhone, Android
+        
+        // サーバーを用意する
+        
+        
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(function(position) {
+                clearOverlays();
+
+                map.setCenter(new google.maps.LatLng(position.coords.latitude, position.coords.longitude));
+                
+                var marker = new google.maps.Marker({
+                    position: map.getCenter(),
+                    icon: new google.maps.MarkerImage('red.png'),
+                    map: map
+                });
+                //マーカーを配列に入れる
+                markersArray.push(marker);
+            }, function() {
+                alert('現在地を取得できません！');
+            });
+        } else {
+            alert('対応していません！');
+        }
+        //マーカーを消す
+        function clearOverlays() {
+            for (var i = 0; i < markersArray.length; i++ ) {
+                markersArray[i].setMap(null);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="user-scalable=no,initial-scale=1" />
+
+<meta http-equiv="Content-Script-Type" content="text/javascript" />
+<meta http-equiv="Content-Style-Type" content="text/css" />
+
+<title>directions2staticmaps</title>
+<script src="http://maps.googleapis.com/maps/api/js?sensor=false" type="text/javascript"></script>
+<style type="text/css">
+#gmap {position:absolute;width:640px;height:500px;top:0px;}
+/*
+#static{position:absolute;left:650px;top:0px;}
+*/
+#result{position:absolute;left:650px;top:230px;}
+#control{position:absolute;left:0px;top:510px;}
+#static_start{position:absolute;left:870px;top:0px;}
+#static_end{position:absolute;left:870px;top:230px;}
+</style>
+</head>
+<body>
+<div id="gmap"></div>
+<div id="control"></div>
+<!--
+<div id="static"></div>
+-->
+<div id="result"></div>
+<!--つけたし-->
+<script type="text/javascript" src="http://code.jquery.com/jquery.min.js"></script>
+
+
+<script type="text/javascript">
+//つけたし
+var map = null;
+var markers = new Array();
+var infoWindows = new Array();
+var currentMarker = null;
+var currentInfoWindow = null;
+
+var map = new google.maps.Map(
+	document.getElementById("gmap"),{
+		zoom : 15,
+		center : new google.maps.LatLng(40.784780, 140.760187),
+		mapTypeId : google.maps.MapTypeId.ROADMAP
+	}
+);
+//1:道案内のコントロールを表示する
+document.getElementById("control").innerHTML = 'Start:<input type=text id=origin value="青森大学"> ';
+document.getElementById("control").innerHTML += 'End:<input type=text id=destination value="青森中央学院大">';
+document.getElementById("control").innerHTML += '<select id=mode><option value="WALKING">WALKING</option><option value="DRIVING">DRIVING</option></select>';
+document.getElementById("control").innerHTML += '<input type="button" id="directions" value="Go">';
+document.getElementById("control").innerHTML += '<input type="button" id="cls" value="cls">';
+document.getElementById("directions").addEventListener("click", execDirect,true);
+//2:ルート検索を行う
+function execDirect(){
+	var mode = google.maps.DirectionsTravelMode.WALKING;
+	if(document.getElementById("mode").selectedIndex == 1){
+		mode = google.maps.DirectionsTravelMode.DRIVING;
+	}
+	var directionsService = new google.maps.DirectionsService();
+//怪しい
+
+	var directionsDisplay = new google.maps.DirectionsRenderer({draggable: true});
+	google.maps.event.addListener(directionsDisplay, "directions_changed", function() {
+		staticRoute(directionsDisplay.directions);
+	});
+
+//怪しい
+	directionsDisplay.setMap(map);
+	directionsService.route({
+		origin : document.getElementById('origin').value,
+		destination: document.getElementById('destination').value,
+		travelMode: mode
+	},
+	
+	function(response, status){
+		if (status == google.maps.DirectionsStatus.OK) {
+			directionsDisplay.setDirections(response);
+			staticRoute(response);
+		}else{
+			alert("ルート検索に失敗しました");
+//			console.log(status);
+//			console.log(response);
+		}
+	});
+
+	document.getElementById("cls").addEventListener("click", function(){
+		directionsDisplay.setMap(null);
+	},true);
+}
+//3:StaticMapsAPIに変換する
+function staticRoute(response){
+	var path,img,slat,slng,elat,elng,marker,base,html,box;
+	//StaticMapsAPIの基本URL部分
+	base="http://maps.googleapis.com/maps/api/staticmap?size=220x220&sensor=false&";
+	slat = (response.routes[0].legs[0].start_location.lat()).toFixed(6);
+	slng = (response.routes[0].legs[0].start_location.lng()).toFixed(6);
+
+	//StaticMapsAPIのマーカー作成部分
+	marker="markers=color:blue|label:S|"+slat+","+slng+"&";
+	marker+="markers=color:green|label:E|"+response.routes[0].legs[0].end_location.lat()+","+response.routes[0].legs[0].end_location.lng()+"&";
+	path="path=color:0x0000ff|weight:5|"+slat+","+slng;
+
+
+	html = response.routes[0].legs[0].distance.text+"(";
+	html += response.routes[0].legs[0].duration.text+")<br>";
+
+	var length=response.routes[0].legs[0].steps.length;
+
+	//StaticMapsAPIのpath(ルート表示）作成部分
+//羅列している
+	for(var i=0; i<length; i++){
+		lat = response.routes[0].legs[0].steps[i].end_location.lat();//到着地点の緯度
+		lng = response.routes[0].legs[0].steps[i].end_location.lng();//到着地点の経度
+
+//		html += "<li>"+response.routes[0].legs[0].steps[1].instructions;
+//右側文字表示部分
+		//html += "<li>"+response.routes[0].legs[0].steps[i].instructions;
+//		console.log(response.routes[0].legs[0].steps[i]);
+		box = response.routes[0].legs[0].steps[i].instructions;
+		if(box.match(/右折/)||box.match(/左折/)){
+			setMarker(lat,lng);
+			resizeMapCanvas();
+		}
+
+		lat=lat.toFixed(6);//小数点６
+		lng=lng.toFixed(6);
+
+
+//ルートが検索できなかった場合
+		if(lat != undefined){
+			path += "|"+lat+","+lng;
+			emarker="";
+		}
+
+	}
+
+	img = base+marker+path;
+//右に距離・時間を表示させていたところ
+	//document.getElementById("result").innerHTML = "<ol>"+html+"</ol>";//ルートの文字を表示しているところ
+
+//あやしい
+//	document.getElementById("static").innerHTML = "<img src="+img+">";//ルートの小さい地図を表示しているところ
+
+}
+
+//つけたし
+jQuery(window).resize(function() {
+	resizeMapCanvas();
+});
+function setMarker(lat,lng) {
+
+	jQuery.each(markers, function() { 
+		this.setMap(null); 
+	});
+	jQuery.ajax({
+		url: './get_GooglePlacesJSON.php',
+		dataType: 'jsonp',
+		type: 'GET',
+		data: {
+			location: lat + ',' + lng,
+			//半径何M
+			radius: 100,
+			types:'lodging',
+			language: 'ja',
+			sensor: 'false',
+			key: 'AIzaSyD_g-Zq1yElImO3nsgkvEX4XxB604c1HDU'
+		},
+		jsonp : 'callback',
+		// on success
+		success: function(json, textStatus, jqXHR){
+			for (i in json.results) {
+				var marker = new google.maps.Marker({
+					map: map,
+					position: new google.maps.LatLng(json.results[i].geometry.location.lat, json.results[i].geometry.location.lng)
+				});
+				markers.push(marker);
+				
+				//吹き出し
+				var infoWindow = attachInfoWindow(
+					marker,
+					json.results[i]
+				);
+			}
+		},
+		// on failure
+		error: function (jqXHR, textStatus, errorThrown){
+			console.log(jqXHR);
+			console.log(textStatus);
+			console.log(errorThrown);
+		}
+	});
+}
+function resizeMapCanvas() {
+	jQuery('#map-canvas').height(jQuery(document).height());
+}
+
+function attachInfoWindow(marker, json){
+	var infoWindow = new google.maps.InfoWindow({
+		content: '<h3>' + json.name + '</h3>'
+			+ '<p>' + json.vicinity + '</p>'
+	});
+	infoWindow.id = json.id;
+	
+	infoWindows.push(infoWindow);
+	google.maps.event.addListener(marker, 'click', function() {
+		removeInfoWindow();
+		infoWindow.open(marker.getMap(), marker);
+		currentInfoWindow = infoWindow;
+	});
+	return infoWindow;
+}
+function removeInfoWindow(){
+	if (currentInfoWindow){
+		currentInfoWindow.close();
+	}
+	if (currentMarker){
+		currentMarker.setMap();
+	}
+}
+
+</script>
+</body>
+</html>
