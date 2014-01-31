@@ -2,20 +2,34 @@
 /*jslint browser:true, devel:true */
 
 $.ajax({
-  url: 'http://powerful-island-3353.herokuapp.com/shelters.json',
+  //url: 'http://powerful-island-3353.herokuapp.com/shelters.json',
+  url: 'http://localhost:3000/shelters.json',
   dataType: 'jsonp',
     success: function (data) {
         //console.log(data[0].lat);
         //var Lat = data[0].lat;
         //var Lng = data[0].lng;
-        allPrograms(data);
+        var Jname = new Array();
+        var Jlat = new Array();
+        var Jlng = new Array();
+        var Jtel = new Array();
+        var Jcapacity = new Array();
+        var JdataLength = data.length;
+        for (i = 0; i < data.length; i += 1) {
+            Jname[i] = data[i].name;
+            Jlat[i] = data[i].lat;
+            Jlng[i] = data[i].lng;
+            Jtel = data[i].tel;
+            Jcapacity = data[i].capacity;
+        }
+        allPrograms(Jname, Jlat, Jlng, Jtel, Jcapacity, JdataLength);
     },
     error: function () {
         console.log("通信エラー");
   }
 });
 
-function allPrograms(){
+function allPrograms(Jname, Jlat, Jlng){
     var markersArray = [];
     var latlng = new google.maps.LatLng(35.66, 139.69);
     //現在地の緯度経度を入れておく
@@ -60,28 +74,34 @@ function allPrograms(){
     //情報ウィンドー
     var addInfoWindow = function (index,myMarker) {
         var infoWindow = new google.maps.InfoWindow({
-            content: '<div>' + Address[index].posi + '<br><input type="button" id="directions" value="ナビ開始" style="WIDTH: 100px; HEIGHT: 100px"></div>'
+            content: '<div>' + Jname[index] + '<br>' + Jtel[index] + '<br>' + Jcapacity[index] + '<br><input type="button" id="directions" value="ナビ開始" style="WIDTH: 100px; HEIGHT: 100px"></div>'
         });
         infoWindow.open(map, myMarker);
+        currentInfoWindow = infoWindow;//currentInfoWindowの中にinfoWindowの中にある情報を入れておく
     }
-    var addMarker = function (address, index) {
+    var addMarker = function (address,index) {
         var marker = new google.maps.Marker({
-            position: new google.maps.LatLng(address.lat, address.lng),
+            position: new google.maps.LatLng(Jlat[index], Jlng[index]),
             map: map
         });
         google.maps.event.addListener(marker, 'click', function () {
+            //currentInfoWindowの中にある情報のinfoWindowは消す
+            if (currentInfoWindow) {
+                currentInfoWindow.close();
+            }
             //console.log(index);//indexはマーカーの番号
             addInfoWindow(index, markers[index]);
+            //currentInfoWindow = InfoWindow;
             console.log(Address[index].lat);
             console.log(markers[index]);
-            Elatlng = new google.maps.LatLng(Address[index].lat, Address[index].lng);
+            Elatlng = new google.maps.LatLng(Jlat[index], Jlng[index]);
         });
         markers.push(marker);
     }
     /*中に直書きではなく、関数を作ってからじゃなきゃダメ！
     理由は直書きだと実引数のiをもらってしまうため、どこのマーカーをクリックしても最後のiの数字をもらってしまう（今回は４）
     今回はクリックしたマーカーはどれであったか確認したいため関数をいったん作って仮引数のiをとることにした。*/
-    for (i = 0; i < Address.length; i += 1) {
+    for (i = 0; i < 3; i += 1) {
         var address = Address[i];
         addMarker(address, i);
     }
@@ -100,15 +120,41 @@ function allPrograms(){
     }
 
     // サーバーを用意する
+    setInterval(geoLocationOn(),5000);
+    function geoLocationOn() {
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(function (position) {
+                'use strict';
+                clearOverlays();
+                //現在地をGlatlngに入れた
+                Glatlng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
 
+                map.setCenter(Glatlng);
+
+                var marker = new google.maps.Marker({
+                    position: map.getCenter(),
+                    icon: new google.maps.MarkerImage('red.png'),
+                    map: map
+                });
+                //マーカーを配列に入れる
+                markersArray.push(marker);
+            }, function () {
+                'use strict';
+                alert('現在地を取得できません！');
+            });
+        } else {
+            alert('対応していません！');
+        }
+    }
+    /*
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition(function (position) {
             'use strict';
             clearOverlays();
-
-            map.setCenter(new google.maps.LatLng(position.coords.latitude, position.coords.longitude));
             //現在地をGlatlngに入れた
             Glatlng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+
+            map.setCenter(Glatlng);
 
             var marker = new google.maps.Marker({
                 position: map.getCenter(),
@@ -124,9 +170,10 @@ function allPrograms(){
     } else {
         alert('対応していません！');
     }
-
+*/
     function removeInfoWindow() {
         'use strict';
+        console.log(currentInfoWindow);
         if (currentInfoWindow) {
             currentInfoWindow.close();
         }
@@ -134,7 +181,7 @@ function allPrograms(){
             currentMarker.setMap();
         }
     }
-
+//道の途中にある目印の建物のinfowindowを表示させるところ
     function attachInfoWindow(marker, json) {
         'use strict';
         var infoWindow = new google.maps.InfoWindow({
@@ -174,6 +221,7 @@ function allPrograms(){
                 key: 'AIzaSyD_g-Zq1yElImO3nsgkvEX4XxB604c1HDU'
             },
             jsonp : 'callback',
+            //もし目印となる建物があったら
             // on success
             success: function (json, textStatus, jqXHR) {
                 var i, marker, infoWindow;
@@ -192,10 +240,7 @@ function allPrograms(){
                     markersArray.push(marker);
 
                     //吹き出し
-                    infoWindow = attachInfoWindow(
-                        marker,
-                        json.results[i]
-                    );
+                    infoWindow = attachInfoWindow(marker,json.results[i]);
                 }
 
             },
